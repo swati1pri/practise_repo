@@ -1,1 +1,4 @@
-print("hello python world")
+def printmsg(msg):
+  print(msg)
+  
+printmsg(msg)
