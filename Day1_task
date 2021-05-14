@@ -1,0 +1,79 @@
+Links:
+EC2 Creation --> http://devops-jenkins.privacera.us:8080/job/privacera-dev_aws_account-ec2-instance-creating/build?delay=0sec
+To Start/Stop --> http://devops-jenkins.privacera.us:8080/job/privacera-dev_aws/job/EC2-Start-Stop-Dev-account/build?delay=0sec
+
+Task Steps:
+
+EC2 creation 
+- go to given link
+- provide instance name and mail id
+
+instance role to use => DiscoveryEc2RoleNewTest
+
+- Find private-ip from Jenkins -> Build -> get the ip address
+- SSH to the instance
+ssh -i /home/gslab/Downloads/privacera-dev.pem ec2-user@10.211.94.8
+
+If permission denied error - chmod 400 /home/gslab/Downloads/privacera-dev.pem
+
+- Once logged in - install docker
+sudo yum install -y docker
+sudo sed -i 's/1024:4096/1024000:1024000/g' /etc/sysconfig/docker
+sudo cat /etc/sysconfig/docker
+sudo service docker start
+sudo systemctl enable docker
+sudo usermod -a -G docker ec2-user
+exit
+
+- Again login - install docker-compose
+DOCKER_COMPOSE_VERSION="1.23.2"
+sudo curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose --version   (output - docker-compose version 1.23.2, build 1110ad01)
+
+- Now login to the docker with provided creds
+docker login hub2.privacera.com -u dev
+- It will ask for password - Roger@365
+
+- Export env vars
+export PRIVACERA_MGR_BASE_DOWNLOAD_URL=https://s3.amazonaws.com/privacera/feature/feature_4.6.0.1.380/cloud/pm
+export PRIVACERA_MGR_TAG=hub2.privacera.com/privacera-manager:feature_4.6.0.1.380
+export PRIVACERA_HUB_REPO_NAME=hub2.privacera.com
+
+- Tar download then extract
+mkdir -p ~/privacera/downloads
+cd ~/privacera/downloads
+wget $PRIVACERA_MGR_BASE_DOWNLOAD_URL/privacera-manager.tar.gz -O privacera-manager.tar.gz
+cd ~/privacera
+tar -zxf ~/privacera/downloads/privacera-manager.tar.gz
+
+cd ~/privacera/privacera-manager/config
+echo '#!/bin/bash' > pm-env.sh
+echo "export  PRIV_MGR_PACKAGE=$PRIVACERA_MGR_BASE_DOWNLOAD_URL/privacera-manager.tar.gz" >> pm-env.sh
+echo "export  PRIV_MGR_IMAGE=$PRIVACERA_HUB_REPO_NAME/privacera-manager:$PRIVACERA_MGR_TAG" >> pm-env.sh
+
+export PRIV_MGR_PACKAGE=https://s3.amazonaws.com/privacera/feature/feature_4.6.0.1.380/cloud/pm/privacera-manager.tar.gz
+export PRIV_MGR_IMAGE=hub2.privacera.com/privacera-manager:feature_4.6.0.1.380
+
+cd ~/privacera/privacera-manager/
+cd config/pm-ui/
+cp sample.application-custom.properties application-custom.properties
+
+vi application-custom.properties
+server.port=6888
+
+cd  ~/privacera/privacera-manager
+./privacera-manager.sh pm-ui start
+
+Username: pmanager
+Password: pmanager
+
+- on PM UI- select below params
+CONFIGURE AUDIT SERVER - give username and passwd -> save
+Solr cred changes
+Configure Secret Encryption -> Global default keystore password - change
+S3
+non SSL
+Docker
+
+
